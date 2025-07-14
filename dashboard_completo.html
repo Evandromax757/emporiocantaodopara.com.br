@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - ROBOCAPTO</title>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
+        :root {
+            --bg-color: #131722; --card-bg-color: #1e222d; --font-color: #d1d4dc; --border-color: #495057; --primary-color: #2962ff; --green-color: #26a69a; --red-color: #ef5350; --shadow-color: rgba(0, 0, 0, 0.2); --orange-color: #ff9800;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Roboto', sans-serif; background-color: var(--bg-color); color: var(--font-color); line-height: 1.6; padding: 20px; }
+        header, footer { text-align: center; margin-bottom: 2rem; }
+        header h1 { color: var(--primary-color); font-weight: 700; }
+        header p { font-size: 1.1rem; color: #868d9d; }
+        #dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; }
+        .card { background-color: var(--card-bg-color); border-radius: 8px; padding: 25px; border: 1px solid var(--border-color); box-shadow: 0 4px 8px var(--shadow-color); transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 16px var(--shadow-color); }
+        .card h2 { font-size: 1.2rem; margin-bottom: 15px; color: var(--primary-color); display: flex; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        .card h2 .icon { margin-right: 10px; font-size: 1.5rem; }
+        .card p { font-size: 1rem; color: var(--font-color); }
+        .card p strong { color: #a9b1c7; font-weight: 400; }
+        .card span { font-weight: 700; }
+        .signal.buy { background-color: rgba(38, 166, 154, 0.1); border-color: var(--green-color); }
+        .signal.buy #sinal-tipo { color: var(--green-color); }
+        .signal.sell { background-color: rgba(239, 83, 80, 0.1); border-color: var(--red-color); }
+        .signal.sell #sinal-tipo { color: var(--red-color); }
+        footer { margin-top: 2rem; font-size: 0.9rem; color: #555; }
+        #controls { text-align: center; margin-bottom: 2rem; }
+        #pause-button { background-color: var(--orange-color); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 1rem; font-weight: bold; transition: background-color 0.2s; }
+        #pause-button:hover { background-color: #e68900; }
+        #pause-button.paused { background-color: var(--green-color); }
+        #pause-button.paused:hover { background-color: #208a7e; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>EVANDRO M1 VISION PRO</h1>
+        <p>Dashboard Web</p>
+    </header>
+
+    <div id="controls">
+        <button id="pause-button">Pausar Análise</button>
+    </div>
+
+    <main id="dashboard">
+        <div class="card status">
+            <h2><span class="icon">📊</span> Status Atual</h2>
+            <p id="status-mensagem">Aguardando dados...</p>
+        </div>
+        <div class="card signal">
+            <h2><span class="icon">🔔</span> Sinal Programado</h2>
+            <p><span id="sinal-tipo">NENHUM</span> <span>para as</span> <span id="sinal-hora">--:--</span></p>
+        </div>
+        <div class="card stats">
+            <h2><span class="icon">📈</span> Estatísticas</h2>
+            <p><strong>Sinais:</strong> <span id="stats-total">0</span></p>
+            <p><strong>Acertos:</strong> <span id="stats-acertos">0</span></p>
+            <p><strong>Assertividade:</strong> <span id="stats-taxa">0.0</span>%</p>
+        </div>
+        <div class="card sequence">
+            <h2><span class="icon">🕯️</span> Sequência de Candles</h2>
+            <p><strong>Verdes:</strong> <span id="seq-verde">0</span></p>
+            <p><strong>Vermelhos:</strong> <span id="seq-vermelha">0</span></p>
+        </div>
+        <div class="card modules">
+            <h2><span class="icon">⚙️</span> Módulos Ativos</h2>
+            <p id="modulos-ativos">Nenhum</p>
+        </div>
+    </main>
+
+    <footer>
+        <p>Dashboard servido pelo backend local.</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const elements = {
+                statusMsg: document.getElementById('status-mensagem'),
+                sinalTipo: document.getElementById('sinal-tipo'),
+                sinalHora: document.getElementById('sinal-hora'),
+                statsTotal: document.getElementById('stats-total'),
+                statsAcertos: document.getElementById('stats-acertos'),
+                statsTaxa: document.getElementById('stats-taxa'),
+                seqVerde: document.getElementById('seq-verde'),
+                seqVermelha: document.getElementById('seq-vermelha'),
+                modulosAtivos: document.getElementById('modulos-ativos'),
+                sinalCard: document.querySelector('.signal'),
+                pauseButton: document.getElementById('pause-button')
+            };
+
+            // CORREÇÃO: Usar o endereço completo da API
+            const API_URL = 'http://127.0.0.1:5000';
+
+            async function fetchData() {
+                try {
+                    const response = await fetch(`${API_URL}/status`);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const data = await response.json();
+
+                    elements.statusMsg.textContent = data.mensagem;
+                    elements.sinalTipo.textContent = data.sinal_programado || 'NENHUM';
+                    elements.sinalHora.textContent = data.hora_sinal || '--:--';
+                    elements.statsTotal.textContent = data.estatisticas.total_sinais;
+                    elements.statsAcertos.textContent = data.estatisticas.total_acertos;
+                    let taxa = data.estatisticas.total_sinais > 0 ? (data.estatisticas.total_acertos / data.estatisticas.total_sinais) * 100 : 0;
+                    elements.statsTaxa.textContent = `${taxa.toFixed(1)}%`;
+                    elements.seqVerde.textContent = data.sequencia_verde;
+                    elements.seqVermelha.textContent = data.sequencia_vermelha;
+                    elements.modulosAtivos.textContent = data.modulos_ativos.join(' | ') || 'Nenhum';
+                    
+                    elements.sinalCard.className = 'card signal';
+                    if (data.sinal_programado === 'COMPRA') {
+                        elements.sinalCard.classList.add('buy');
+                    } else if (data.sinal_programado === 'VENDA') {
+                        elements.sinalCard.classList.add('sell');
+                    }
+
+                    if (data.is_paused) {
+                        elements.pauseButton.textContent = 'Retomar Análise';
+                        elements.pauseButton.classList.add('paused');
+                    } else {
+                        elements.pauseButton.textContent = 'Pausar Análise';
+                        elements.pauseButton.classList.remove('paused');
+                    }
+
+                } catch (error) {
+                    console.error("Erro ao buscar dados da API:", error);
+                    elements.statusMsg.textContent = "Erro de conexão com o backend.";
+                }
+            }
+
+            async function togglePause() {
+                try {
+                    await fetch(`${API_URL}/toggle_pause`, { method: 'POST' });
+                    fetchData();
+                } catch (error) {
+                    console.error("Erro ao pausar/retomar:", error);
+                }
+            }
+
+            elements.pauseButton.addEventListener('click', togglePause);
+            setInterval(fetchData, 1000);
+        });
+    </script>
+</body>
+</html>
